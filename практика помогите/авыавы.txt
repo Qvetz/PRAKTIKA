@@ -1,0 +1,524 @@
+from Models.client import Client
+from database import transportation_db
+from Models.sale import Sale
+from Models.gruz import Gruz
+from Models.city import City
+from Models.adress import Adress
+
+def show_main_menu():
+    while True:
+        print("\n Грузовые перевозки 'Фурри компани'")
+        print("1. Работа с клиентами")
+        print("2. Работа с заказами")
+        print("3. Заказы")
+        print("0. Выход")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            client_menu()
+        elif choice == "2":
+            Gruz_menu()
+        elif choice == "3":
+            sale_menu()
+        elif choice == "0":
+            break
+        else:
+            print("Неверный выбор")
+
+def client_menu():
+    while True:
+        print("\n Работа с клиентами")
+        print("1. Добавить клиента")
+        print("2. Просмотреть клиентов")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            surname = input("Фамилия: ")
+            name = input("Имя: ")
+            patronymic = input("Отчество: ")
+            address = input("Адрес: ")
+            phone = input("Телефон: ")
+            
+            client = Client(surname=surname, name=name, patronymic=patronymic, address=address, phone=phone)
+            client.save()
+            print("Клиент сохранен!")
+            
+        elif choice == "2":
+            clients = Client.get_all()
+            print("\nСписок клиентов:")
+            for c in clients:
+                print(f"{c.id}. {c.surname} {c.name} {c.patronymic}")
+        elif choice == "0":
+            break
+
+def Gruz_menu():
+    while True:
+        print("\n === Работа с грузами ===")
+        print("1. Добавить город")
+        print("2. Добавить адрес")
+        print("3. Добавить груз")
+        print("4. Просмотреть заказы")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            name = input("Название города: ")
+            region = input("Регион: ")
+            
+            city = City(name=name, region=region)
+            city.save()
+            print("Город добавлен!")
+            
+        elif choice == "2":
+            address = input("Адрес: ")
+            
+            # Выбор города
+            countries = City.get_all()
+            for c in countries:
+                print(f"{c.id}. {c.name}")
+            city_id = int(input("ID города: "))
+            
+            Adress = Adress(address=address, city_id=city_id)
+            Adress.save()
+            print("Адрес добавлен!")
+            
+        elif choice == "3":
+            duration = int(input("Длительность (дни): "))
+            price = float(input("Базовая цена: "))
+            
+            # Выбор адреса
+            Adress = Adress.get_all()
+            for a in address:
+                print(f'{a.id}. {a.name}')
+            
+            gruz = Gruz(duration=duration, base_price=price, adress_id=address)
+            gruz.save()
+            print("Груз добавлен!")
+            
+        elif choice == "4":
+            Gruzs = Gruz.get_all()
+            for t in Gruzs:
+                Adress = Adress.get_by_id(t.Adress_id)
+                city = City.get_by_id(Adress.city_id)
+                print(f"{t.id}. {city.name} - {Adress.name} ({t.duration} дней, {t.base_price} руб.)")
+                
+        elif choice == "0":
+            break
+
+def sale_menu():
+    while True:
+        print("\n Заказы")
+        print("1. Оформить заказ")
+        print("2. Просмотреть заказы")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            # Выбор клиента
+            clients = Client.get_all()
+            for c in clients:
+                print(f"{c.id}. {c.surname} {c.name} {c.patronymic}")
+            client_id = int(input("ID клиента: "))
+            
+            # Выбор груза
+            Gruzs = Gruz.get_all()
+            for t in Gruzs:
+                Adress = Adress.get_by_id(t.Adress_id)
+                city = City.get_by_id(Adress.city_id)
+                print(f"{t.id}. {city.name} - {Adress.name} ({t.duration} дней, {t.base_price} руб.)")
+            Gruz_id = int(input("ID груза: "))
+            
+            # Скидки
+            print("Доступные скидки:")
+            print("- 5% как за постоянного клиента")
+            discount = float(input("Общий процент скидки: "))
+            
+            departure = input("Дата выезда (ГГГГ-ММ-ДД): ")
+            
+            sale = Sale(
+                client_id=client_id,
+                Gruz_id=Gruz_id,
+                discount=discount,
+                departure_date=departure
+            )
+            sale.save()
+            print(f"Заказ оформлен! Итоговая цена: {sale.total_price} руб.")
+            
+        elif choice == "2":
+            sales = Sale.get_all()
+            for s in sales:
+                client = Client.get_by_id(s.client_id)
+                Gruz = Gruz.get_by_id(s.Gruz_id)
+                Adress = Adress.get_by_id(Gruz.Adress_id)
+                city = City.get_by_id(Adress.city_id)
+                print(f"{s.id}. {client.surname} {client.name} - {city.name} ({Gruz.duration} дней), {s.total_price} руб.")
+                
+        elif choice == "0":
+            break
+
+
+if __name__ == '__main__':
+    transportation_db()
+    show_main_menu()
+
+
+
+
+    # database.py
+import sqlite3
+
+def get_connection():
+    return sqlite3.connect("transport.db")
+
+def create_tables():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS City (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    )''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS Adress (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        address TEXT,
+        city_id INTEGER,
+        FOREIGN KEY (city_id) REFERENCES City(id)
+    )''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS Gruz (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        duration INTEGER,
+        base_price REAL,
+        adress_id INTEGER,
+        FOREIGN KEY (adress_id) REFERENCES Adress(id)
+    )''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS clients (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT
+    )''')
+
+    cursor.execute('''
+    CREATE TABLE IF NOT EXISTS sales (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        client_id INTEGER,
+        gruz_id INTEGER,
+        sale_date DATE,
+        discount REAL DEFAULT 0,
+        total_price REAL,
+        departure_date DATE,
+        FOREIGN KEY (client_id) REFERENCES clients(id),
+        FOREIGN KEY (gruz_id) REFERENCES Gruz(id)
+    )''')
+
+    conn.commit()
+    conn.close()
+
+
+
+# gruz.py
+from database import get_connection
+from adress import Adress
+
+class Gruz:
+    def __init__(self, id=None, duration=None, base_price=0, adress_id=None):
+        self.id = id
+        self.duration = duration
+        self.base_price = base_price
+        self.adress_id = adress_id
+
+    def save(self):
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        if self.id is None:
+            cursor.execute("""
+            INSERT INTO Gruz (duration, base_price, adress_id)
+            VALUES (?, ?, ?)
+            """, (self.duration, self.base_price, self.adress_id))
+            self.id = cursor.lastrowid
+        else:
+            cursor.execute("""
+            UPDATE Gruz SET duration=?, base_price=?, adress_id=?
+            WHERE id=?
+            """, (self.duration, self.base_price, self.adress_id, self.id))
+
+        conn.commit()
+        conn.close()
+
+    @staticmethod
+    def get_by_id(gruz_id):
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, duration, base_price, adress_id FROM Gruz WHERE id=?", (gruz_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return Gruz(*row) if row else None
+
+    @staticmethod
+    def get_all():
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, duration, base_price, adress_id FROM Gruz")
+        gruzs = [Gruz(*row) for row in cursor.fetchall()]
+        conn.close()
+        return gruzs
+
+
+# sale.py
+from datetime import date
+from database import get_connection
+from gruz import Gruz
+
+class Sale:
+    def __init__(self, id=None, client_id=None, gruz_id=None, sale_date=None, discount=0, total_price=0, departure_date=None):
+        self.id = id
+        self.client_id = client_id
+        self.gruz_id = gruz_id
+        self.sale_date = sale_date or date.today().strftime("%Y-%m-%d")
+        self.discount = discount
+        self.total_price = total_price
+        self.departure_date = departure_date
+
+    def save(self):
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        gruz = Gruz.get_by_id(self.gruz_id)
+        if not gruz:
+            raise ValueError("Груз не найден")
+
+        base_price = gruz.base_price
+        self.total_price = base_price * (1 - self.discount / 100)
+
+        if self.id is None:
+            cursor.execute("""
+            INSERT INTO sales (client_id, gruz_id, sale_date, discount, total_price, departure_date)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """, (self.client_id, self.gruz_id, self.sale_date, self.discount, self.total_price, self.departure_date))
+            self.id = cursor.lastrowid
+        else:
+            cursor.execute("""
+            UPDATE sales SET client_id=?, gruz_id=?, sale_date=?, discount=?, total_price=?, departure_date=?
+            WHERE id=?
+            """, (self.client_id, self.gruz_id, self.sale_date, self.discount, self.total_price, self.departure_date, self.id))
+
+        conn.commit()
+        conn.close()
+
+
+
+
+# main.py (фрагмент gruz_menu)
+from city import City
+from adress import Adress
+from gruz import Gruz
+
+def gruz_menu():
+    gruzs = Gruz.get_all()
+    for g in gruzs:
+        address = Adress.get_by_id(g.adress_id)
+        if address is None:
+            print(f"{g.id}. Адрес не найден.")
+            continue
+        city = City.get_by_id(address.city_id)
+        city_name = city.name if city else "Неизвестный город"
+        print(f"{g.id}. {city_name} - {address.address} ({g.duration} дней, {g.base_price} руб.)")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+from Models.client import Client
+from database import transportation_db
+from Models.sale import Sale
+from Models.gruz import Gruz
+from Models.city import City
+from Models.adress import Adress
+
+def show_main_menu():
+    while True:
+        print("\n Грузовые перевозки 'Фурри компани'")
+        print("1. Работа с клиентами")
+        print("2. Работа с грузами")
+        print("3. Заказы")
+        print("0. Выход")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            client_menu()
+        elif choice == "2":
+            gruz_menu()
+        elif choice == "3":
+            sale_menu()
+        elif choice == "0":
+            break
+        else:
+            print("Неверный выбор")
+
+def client_menu():
+    while True:
+        print("\n Работа с клиентами")
+        print("1. Добавить клиента")
+        print("2. Просмотреть клиентов")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            surname = input("Фамилия: ")
+            name = input("Имя: ")
+            patronymic = input("Отчество: ")
+            address = input("Адрес: ")
+            phone = input("Телефон: ")
+            
+            client = Client(surname=surname, name=name, patronymic=patronymic, address=address, phone=phone)
+            client.save()
+            print("Клиент сохранен!")
+            
+        elif choice == "2":
+            clients = Client.get_all()
+            print("\nСписок клиентов:")
+            for c in clients:
+                print(f"{c.id}. {c.surname} {c.name} {c.patronymic}")
+        elif choice == "0":
+            break
+
+def gruz_menu():
+    while True:
+        print("\n === Работа с грузами ===")
+        print("1. Добавить город")
+        print("2. Добавить адрес")
+        print("3. Добавить груз")
+        print("4. Просмотреть грузы")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            name = input("Название города: ")
+            region = input("Регион: ")
+            
+            city = City(name=name, region=region)
+            city.save()
+            print("Город добавлен!")
+            
+        elif choice == "2":
+            street_address = input("Адрес: ")
+            cities = City.get_all()
+            for c in cities:
+                print(f"{c.id}. {c.name}")
+            city_id = int(input("ID города: "))
+            
+            address = Adress(address=street_address, city_id=city_id)
+            address.save()
+            print("Адрес добавлен!")
+            
+        elif choice == "3":
+            duration = int(input("Длительность (дни): "))
+            price = float(input("Базовая цена: "))
+            
+            addresses = Adress.get_all()
+            for a in addresses:
+                city = City.get_by_id(a.city_id)
+                print(f"{a.id}. {city_id.name}, {a.address}")
+            address_id = int(input("ID адреса: "))
+            
+            gruz = Gruz(duration=duration, base_price=price, adress_id=address_id)
+            gruz.save()
+            print("Груз добавлен!")
+            
+        elif choice == "4":
+            gruzs = Gruz.get_all()
+            for g in gruzs:
+                address = Adress.get_by_id(g.adress_id)
+                city = City.get_by_id(address.city_id)
+                print(f"{g.id}. {city_id.name} - {address.address} ({g.duration} дней, {g.base_price} руб.)")
+                
+        elif choice == "0":
+            break
+
+def sale_menu():
+    while True:
+        print("\n Заказы")
+        print("1. Оформить заказ")
+        print("2. Просмотреть заказы")
+        print("0. Назад")
+        
+        choice = input("Выберите действие: ")
+        
+        if choice == "1":
+            # Выбор клиента
+            clients = Client.get_all()
+            for c in clients:
+                print(f"{c.id}. {c.surname} {c.name} {c.patronymic}")
+            client_id = int(input("ID клиента: "))
+            
+            # Выбор груза
+            gruzs = Gruz.get_all()
+            for g in gruzs:
+                address = Adress.get_by_id(g.adress_id)
+                city = City.get_by_id(address.city_id)
+                print(f"{g.id}. {city.name} - {address.address} ({g.duration} дней, {g.base_price} руб.)")
+            gruz_id = int(input("ID груза: "))
+            
+            # Скидки
+            print("Доступные скидки:")
+            print("- 5% как за постоянного клиента")
+            discount = float(input("Общий процент скидки: "))
+            departure = input("Дата выезда (ГГГГ-ММ-ДД): ")
+            
+            sale = Sale(
+                client_id=client_id,
+                gruz_id=gruz_id,
+                discount=discount,
+                departure_date=departure
+            )
+            sale.save()
+            print(f"Заказ оформлен! Итоговая цена: {sale.total_price} руб.")
+            
+        elif choice == "2":
+            sales = Sale.get_all()
+            for s in sales:
+                client = Client.get_by_id(s.client_id)
+                gruz = Gruz.get_by_id(s.gruz_id)
+                address = Adress.get_by_id(gruz.adress_id)
+                city = City.get_by_id(address.city_id)
+                print(f"{s.id}. {client.surname} {client.name} - {city.name} ({gruz.duration} дней), {s.total_price} руб.")
+                
+        elif choice == "0":
+            break
+
+if __name__ == '__main__':
+    transportation_db()
+    show_main_menu()
+
+
+        elif choice == "4":
+            gruzs = Gruz.get_all()
+            for g in gruzs:
+                address = Adress.get_by_id(g.adress_id)
+                city = City.get_by_id(address.city_id)
+                print(f"{g.id}. {city.name} - {address.address} ({g.duration} дней, {g.base_price} руб.)")
